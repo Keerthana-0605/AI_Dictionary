@@ -1,294 +1,235 @@
 import streamlit as st
 import requests
-import urllib.parse
+from urllib.parse import quote
 
-# ---------------- PAGE CONFIGURATION ----------------
 st.set_page_config(
-    page_title="AI Dictionary ✨",
+    page_title="AI Dictionary",
     page_icon="📚",
     layout="centered"
 )
 
-# ---------------- CUSTOM DESIGN ----------------
+# ---------- DESIGN ----------
 st.markdown("""
 <style>
-/* App background */
 .stApp {
-    background: linear-gradient(
-        135deg,
-        #fff0f7 0%,
-        #fceafa 50%,
-        #eaf5ff 100%
-    );
+    background: linear-gradient(135deg, #fff0f7, #fceafa, #eaf5ff);
     color: #25213A !important;
 }
-
-/* Main content */
 .main .block-container {
     padding-top: 2rem;
-    padding-bottom: 3rem;
 }
-
-/* Headings */
-.stApp h1,
-.stApp h2,
-.stApp h3 {
+.stApp h1, .stApp h2, .stApp h3 {
     color: #7B2FE8 !important;
 }
-
-/* Normal text and dictionary definitions */
-.stApp p,
-.stApp li,
-.stApp label,
-.stMarkdown,
-.stMarkdown p,
-.stMarkdown li,
-[data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li {
+.stApp p, .stApp li, .stApp label,
+[data-testid="stMarkdownContainer"] p {
     color: #25213A !important;
 }
-
-/* Word input */
 .stTextInput input {
-    background-color: #FFFFFF !important;
+    background: white !important;
     color: #25213A !important;
     -webkit-text-fill-color: #25213A !important;
     border: 2px solid #8B5CF6 !important;
     border-radius: 14px !important;
 }
-
-/* Input label */
-.stTextInput label {
-    color: #7138B5 !important;
-}
-
-/* Buttons */
 .stButton > button {
     background: linear-gradient(90deg, #7628DF, #E32383) !important;
-    color: #FFFFFF !important;
+    color: white !important;
     border: none !important;
     border-radius: 14px !important;
-    padding: 0.7rem 1.2rem !important;
-    font-weight: bold !important;
 }
-
-/* Force button text to remain white */
-.stButton > button p,
-.stButton > button span {
-    color: #FFFFFF !important;
+.stButton > button p {
+    color: white !important;
 }
-
-/* Result card */
-.dictionary-card {
-    background: rgba(255, 255, 255, 0.82);
+.result-card {
+    background: rgba(255,255,255,0.85);
     border: 1px solid #E5D3FA;
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 14px;
+    padding: 16px;
     margin: 12px 0;
-    color: #25213A !important;
     overflow-wrap: anywhere;
-}
-
-/* All text inside result cards */
-.dictionary-card p,
-.dictionary-card div,
-.dictionary-card span,
-.dictionary-card li,
-.dictionary-card strong {
     color: #25213A !important;
 }
-
-/* Word title */
+.result-card p, .result-card strong {
+    color: #25213A !important;
+}
 .word-title {
     color: #7B2FE8 !important;
     font-size: 2rem;
-    font-weight: 750;
-    margin-bottom: 12px;
-}
-
-/* Footer */
-.footer {
-    color: #7138B5 !important;
-    text-align: center;
-    margin-top: 30px;
-    font-size: 14px;
-}
-
-/* Mobile spacing */
-@media (max-width: 600px) {
-    .main .block-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-
-    .word-title {
-        font-size: 1.7rem;
-    }
+    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- HEADER ----------------
+# ---------- HEADER ----------
 st.markdown(
-    "<h1 style='text-align:center;'>📚 AI Dictionary</h1>",
+    "<h1 style='text-align:center'>📚 AI Dictionary</h1>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align:center'>Discover the meaning of any word ✨</p>",
     unsafe_allow_html=True
 )
 
-st.markdown(
-    """
-    <p style='text-align:center; color:#7138B5 !important;
-    font-size:18px;'>
-    Discover the meaning of any word ✨
-    </p>
-    """,
-    unsafe_allow_html=True
-)
-
-st.write("")
-
-# ---------------- LANGUAGE SELECTION ----------------
+# ---------- LANGUAGE ----------
 language = st.selectbox(
     "Choose meaning language / అర్థం భాషను ఎంచుకోండి",
     ["English", "Telugu (తెలుగు)"]
 )
 
-# ---------------- WORD INPUT ----------------
 word = st.text_input(
     "Enter a word",
-    placeholder="Example: World, Love, Happiness..."
+    placeholder="Example: World, Love, Happiness"
 )
 
-# ---------------- DICTIONARY FUNCTION ----------------
-def get_definition(word, language):
-    encoded_word = urllib.parse.quote(word.strip())
 
+# ---------- ENGLISH DICTIONARY ----------
+def get_definition(word):
     url = (
         "https://api.dictionaryapi.dev/api/v2/entries/en/"
-        + encoded_word
+        + quote(word.strip())
     )
 
-    try:
-        response = requests.get(url, timeout=15)
+    response = requests.get(url, timeout=15)
+    response.raise_for_status()
+    data = response.json()
 
-        if response.status_code != 200:
-            return None, "Word not found. Please check the spelling."
+    results = []
 
-        data = response.json()
+    for entry in data:
+        for meaning in entry.get("meanings", []):
+            for definition in meaning.get("definitions", []):
+                text = definition.get("definition", "")
 
-        if not isinstance(data, list) or not data:
-            return None, "No definition was found for this word."
-
-        results = []
-
-        for entry in data:
-            for meaning in entry.get("meanings", []):
-                part_of_speech = meaning.get(
-                    "partOfSpeech", "Not available"
-                )
-
-                for definition in meaning.get("definitions", []):
-                    item = {
-                        "part_of_speech": part_of_speech,
-                        "definition": definition.get(
-                            "definition", ""
+                if text:
+                    results.append({
+                        "part_of_speech": meaning.get(
+                            "partOfSpeech", "Unknown"
                         ),
+                        "definition": text,
                         "example": definition.get("example", "")
-                    }
+                    })
 
-                    if item["definition"]:
-                        results.append(item)
-
-        if not results:
-            return None, "No definitions are available for this word."
-
-        # Telugu translations use MyMemory translation API.
-        if language == "Telugu (తెలుగు)":
-            for item in results:
-                item["definition"] = translate_to_telugu(
-                    item["definition"]
-                )
-
-                if item["example"]:
-                    item["example"] = translate_to_telugu(
-                        item["example"]
-                    )
-
-        return results, None
-
-    except requests.exceptions.Timeout:
-        return None, "The request timed out. Please try again."
-
-    except requests.exceptions.RequestException:
-        return None, "Unable to connect. Please check your internet."
-
-    except (ValueError, TypeError, KeyError):
-        return None, "Something went wrong while reading the definition."
+    return results
 
 
-# ---------------- TELUGU TRANSLATION ----------------
+# ---------- ENGLISH TO TELUGU TRANSLATION ----------
 def translate_to_telugu(text):
-    try:
-        url = "https://api.mymemory.translated.net/get"
+    if not text or not text.strip():
+        return ""
 
+    # MyMemory accepts up to 500 bytes per request.
+    # Split longer definitions into smaller chunks.
+    words = text.split()
+    chunks = []
+    current = ""
+
+    for word_part in words:
+        candidate = (current + " " + word_part).strip()
+
+        if len(candidate.encode("utf-8")) > 450:
+            if current:
+                chunks.append(current)
+            current = word_part
+        else:
+            current = candidate
+
+    if current:
+        chunks.append(current)
+
+    translated_chunks = []
+
+    for chunk in chunks:
         response = requests.get(
-            url,
+            "https://api.mymemory.translated.net/get",
             params={
-                "q": text,
+                "q": chunk,
                 "langpair": "en|te"
             },
-            timeout=15
+            timeout=20
         )
+        response.raise_for_status()
+        data = response.json()
 
-        if response.status_code == 200:
-            data = response.json()
-            translated = data.get(
-                "responseData", {}
-            ).get("translatedText")
+        translated = data.get(
+            "responseData", {}
+        ).get("translatedText", "")
 
-            if translated:
-                return translated
+        if (
+            data.get("responseStatus") != 200
+            or not translated
+            or data.get("quotaFinished") is True
+        ):
+            raise ValueError(
+                data.get("responseDetails")
+                or "Translation service did not return a translation."
+            )
 
-        return text
+        translated_chunks.append(translated)
 
-    except (requests.exceptions.RequestException, ValueError):
-        return text
+    return " ".join(translated_chunks)
 
 
-# ---------------- SEARCH BUTTON ----------------
+# ---------- SEARCH ----------
 if st.button("Find Meaning ✨", use_container_width=True):
     if not word.strip():
         st.warning("Please enter a word first.")
     else:
-        with st.spinner("Finding the meaning... ✨"):
-            results, error = get_definition(word, language)
+        try:
+            with st.spinner("Finding the meaning... ✨"):
+                results = get_definition(word)
 
-        if error:
-            st.error(error)
-        else:
-            st.session_state["dictionary_word"] = word.strip()
-            st.session_state["dictionary_results"] = results
-            st.session_state["dictionary_language"] = language
+                if not results:
+                    st.warning("No definitions found. Check the spelling.")
+                    st.stop()
 
-# ---------------- DISPLAY RESULTS ----------------
-if "dictionary_results" in st.session_state:
-    results = st.session_state["dictionary_results"]
-    result_word = st.session_state["dictionary_word"]
-    result_language = st.session_state["dictionary_language"]
+                # Translate definitions when Telugu is selected.
+                if language == "Telugu (తెలుగు)":
+                    for item in results:
+                        item["definition"] = translate_to_telugu(
+                            item["definition"]
+                        )
 
+                        if item["example"]:
+                            item["example"] = translate_to_telugu(
+                                item["example"]
+                            )
+
+            st.session_state["results"] = results
+            st.session_state["searched_word"] = word.strip()
+            st.session_state["result_language"] = language
+
+        except requests.exceptions.Timeout:
+            st.error("The request timed out. Please try again.")
+        except requests.exceptions.RequestException:
+            st.error(
+                "Could not connect to a dictionary or translation service. "
+                "Please check your internet and try again."
+            )
+        except (ValueError, KeyError) as error:
+            st.error(
+                "Telugu translation failed. The translation service may "
+                "be unavailable or its free quota may be exhausted. "
+                f"Details: {error}"
+            )
+
+# ---------- DISPLAY RESULTS ----------
+if "results" in st.session_state:
     st.markdown(
-        f"<div class='word-title'>{result_word}</div>",
+        f"<div class='word-title'>"
+        f"{st.session_state['searched_word']}</div>",
         unsafe_allow_html=True
     )
 
-    if result_language == "Telugu (తెలుగు)":
-        st.caption("అర్థాలు తెలుగులో")
+    if st.session_state["result_language"] == "Telugu (తెలుగు)":
+        st.write("అర్థాలు తెలుగులో")
     else:
-        st.caption("Definitions in English")
+        st.write("Definitions in English")
 
-    for index, item in enumerate(results, start=1):
+    for index, item in enumerate(st.session_state["results"], 1):
         st.markdown(
             f"""
-            <div class="dictionary-card">
+            <div class="result-card">
                 <p><strong>POS:</strong>
                 {item['part_of_speech']}</p>
                 <p><strong>Meaning {index}:</strong>
@@ -301,7 +242,7 @@ if "dictionary_results" in st.session_state:
         if item["example"]:
             st.markdown(
                 f"""
-                <div class="dictionary-card">
+                <div class="result-card">
                     <p><strong>Example:</strong>
                     {item['example']}</p>
                 </div>
@@ -309,14 +250,7 @@ if "dictionary_results" in st.session_state:
                 unsafe_allow_html=True
             )
 
-# ---------------- FOOTER ----------------
 st.markdown(
-    """
-    <div class="footer">
-        Made with ❤️ using Python and Streamlit
-        <br>
-        Your little dictionary, anytime, anywhere ✨
-    </div>
-    """,
+    "<p style='text-align:center'>Made with ❤️ using Python & Streamlit</p>",
     unsafe_allow_html=True
 )
